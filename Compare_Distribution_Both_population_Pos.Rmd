@@ -303,7 +303,6 @@ set.seed(2023)
 B.iter = 1000
 B.accuracy = rep(0, 1)
 B.auc = rep(0, 1)
-B.precision.recall = rep(0, 1)
 
 #
 N = nrow(sub_feat_lung_data)
@@ -345,9 +344,6 @@ for (i in 1:B.iter){
   # AUC
   res.roc_tune <- roc(test_data[, 1], pred_proba_test_tune)
   B.auc[i] = auc(res.roc_tune)
-  # Precision recall
-  pr_auc = pr.curve(test_data[, 1], pred_proba_test_tune, curve=FALSE)
-  B.precision.recall[i] = pr_auc$auc.integral
 }
 end_time <- Sys.time()
 end_time-start_time
@@ -359,13 +355,11 @@ paste("CI Bootstrap - computing time: ", end_time-start_time)
 # replacement TRUE
 hist(B.accuracy)
 hist(B.auc)
-hist(B.precision.recall)
 ```
 
 
 ```{r echo=TRUE}
 paste("Accuracy 95% CI: ", quantile(B.accuracy, probs = c(0.025, 0.975)))
 paste("AUC 95% CI: ", quantile(B.auc, probs = c(0.025, 0.975)))
-paste("Precision-Recall 95% CI: ", quantile(B.precision.recall, probs = c(0.025, 0.975)))
 ```
 
