@@ -1,7 +1,7 @@
 ---
-title: "Exploratory_Factor_Analysis: random feature selection"
+title: "Exploratory_Factor_Analysis: KS test used to keep the 202 features with most significant difference between both populations"
 author: "Evariste"
-date: "2022-10-05"
+date: "2022-12-22"
 output: html_document
 ---
 
@@ -17,99 +17,9 @@ library(psych)
 library(EFAtools)
 ```
 
-
-## Read files
-File with patient race, gender, smoking status etc.
-```{r s_mtbls28}
-s_mtbls28 = read.table(file = 'MTBLS28_Lung-cancer/s_mtbls28.txt', sep = '\t', header = TRUE)
-print("shape of s_mtbls28:")
-dim(s_mtbls28)
-```
-
-Metabolite data for negative patients
+Read data: computed by Compare_Distribution_Both_population_Pos
 ```{r}
-m_mtbls28_NEG = read.table(file = 'MTBLS28_Lung-cancer/m_mtbls28_NEG_v2_maf.tsv', sep = '\t', header = TRUE)
-print("shape of m_mtbls28_NEG:")
-dim(m_mtbls28_NEG)
-```
-
-Metabolite data for positive patients
-```{r}
-m_mtbls28_POS = read.table(file = 'MTBLS28_Lung-cancer/m_mtbls28_POS_v2_maf.tsv', sep = '\t', header = TRUE)
-print("shape of m_mtbls28_POS:")
-dim(m_mtbls28_POS)
-```
-
-
-Add metabolite identification: concatenate mtbls28 with the row id
-```{r}
-m_mtbls28_NEG$metabolite_identification = paste("mtbls28", seq(1, nrow(m_mtbls28_NEG)), sep="_")
-```
-
-Only keep columns needed
-```{r}
-rawdata_neg =  cbind(m_mtbls28_NEG$metabolite_identification, m_mtbls28_NEG[,22:ncol(m_mtbls28_NEG)])
-#rename first column
-names(rawdata_neg)[names(rawdata_neg) == "m_mtbls28_NEG$metabolite_identification"] <- "metabolite_identification"
-print("shape of rawdata_neg:")
-dim(rawdata_neg)
-```
-
-Reshape - transpose the dataframe 
-```{r}
-#define row names
-new_col = rawdata_neg$metabolite_identification
-row.names(rawdata_neg) = new_col
-#Transpose
-data_neg = t(rawdata_neg)
-print("shape of data_neg:")
-dim(data_neg)
-```
-
-```{r}
-to_remove = "metabolite_identification"
-#Remove metabolite_identification row
-data_neg = as.data.frame(data_neg[!(row.names(data_neg) %in% to_remove),])
-#Add lung cancer column
-#data_neg$lung_cancer = 0
-print("shape of data_neg:")
-dim(data_neg)
-```
-
-```{r}
-#Transform row name to colum
-library("dplyr")
-data_neg = tibble::rownames_to_column(data_neg, "Sample Name")
-print("shape of data_neg:")
-dim(data_neg)
-```
-
-
-```{r}
-length(colnames(rawdata_neg))
-length(colnames(rawdata_neg)[-1])
-```
-
-
-
-```{r}
-#neg_data = merge(s_mtbls28, a_mtbls28_NEG, by="Sample.Name")
-```
-
-
-Sandbox
-```{r eval=FALSE, include=FALSE}
-folder = "D:/Research project/data/MTBLS28/ISATab/MTBLS28/"
-a_MTBLS28_NEG_metabolite = read.table(file = paste(folder, "a_MTBLS28_NEG_metabolite_profiling_mass_spectrometry.txt", sep=""), sep = '\t', header = TRUE)
-```
-
-
-```{r}
-paste("abd", "efg", sep = '')
-```
-
-```{r}
-sample(2:67, 2)
+dim(sub_feat_lung_data)
 ```
 
 
@@ -122,31 +32,12 @@ We search for latent pattern in the data which can classify properly on smoking 
 Should be 4 or 5 times the variables.
 ```{r}
 #We cannot use all variables as the dataset is small
-dim(data_neg[,-1]) #remove "sample name" column
+dim(sub_feat_lung_data[,-1]) #remove "sample name" column
 ```
 Check there is no missing value
 ```{r}
-sum(is.na(data_neg))
+sum(is.na(sub_feat_lung_data))
 ```
-Let pick random 200 columns
-```{r}
-set.seed(2022)
-variableSize = 200
-colEfa = sample(2:ncol(data_neg), variableSize)
-data_neg_fa = cbind(data_neg[,1], data_neg[,colEfa])
-#rename first column
-data_neg_fa = rename(data_neg_fa, "sample Name" = "data_neg[, 1]")
-print("shape of neg data for factor analysis:")
-dim(data_neg_fa)
-```
-
-Convert to numeric
-```{r}
-colVar = 2:ncol(data_neg_fa)
-data_neg_fa[ , colVar] <- apply(data_neg_fa[ , colVar], 2,               function(x) as.numeric(x))
-typeof(data_neg_fa[, 2])
-```
-
 
 #### Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy
 Expected value of KMO index should be greater than 0.7: smaller than 0.5 is unacceptable.
@@ -155,7 +46,7 @@ Expected value of KMO index should be greater than 0.7: smaller than 0.5 is unac
 ```
 
 ```{r}
-EFAtools::KMO(data_neg_fa[,-1])
+EFAtools::KMO(sub_feat_lung_data[,-1])
 ```
 
 
@@ -163,7 +54,7 @@ EFAtools::KMO(data_neg_fa[,-1])
 If variables are uncorrelated this means FA is not appropriate (will not make sense)
 Expected value of r should be smaller than 0.05: means data does not produce an identity matrix
 ```{r}
-EFAtools::BARTLETT(data_neg_fa[,-1])
+EFAtools::BARTLETT(sub_feat_lung_data[,-1])
 ```
 
 #### Communality: proportion of variance explained by the common factors.
@@ -179,8 +70,11 @@ Principal component method
 
 ### Step 3. Decision according to the number of factors
 Expected number of factors: Cumulative factors explaining 60% - 70% of variance should be retained in the model
-```{r eval=FALSE, include=FALSE}
-N_FACTORS(data_neg_fa[,-1], method = "ULS")
+```{r echo=TRUE}
+start_time <- Sys.time()
+N_FACTORS(sub_feat_lung_data[,-1], method = "ULS")
+end_time <- Sys.time()
+print(paste("N_FACTORS - computing time: ", round(end_time-start_time, 4), " min(s)"))
 ```
 
 
@@ -210,20 +104,20 @@ The main objective of rotation is to produce a relatively simple structure in wh
 Minimizes the correlation between factors; makes it possible to identify a variable with a factor.
 Return factors that are orthogonal
 ```{r}
-res_efa_18 = EFA(data_neg_fa[,-1], n_factors = 18, rotation = "varimax", type = "EFAtools")
+res_efa_18 = EFA(sub_feat_lung_data[,-1], n_factors = 18, rotation = "varimax", type = "EFAtools")
 ```
 
 Model averaging
 ```{r eval=FALSE, include=FALSE}
-EFA_AV <- EFA_AVERAGE(data_neg_fa[,-1], n_factors = 18, rotation = "varimax", averaging = "mean", show_progress = TRUE)
+EFA_AV <- EFA_AVERAGE(sub_feat_lung_data[,-1], n_factors = 18, rotation = "varimax", averaging = "mean", show_progress = TRUE)
 ```
 
 
 Compare two rotation techniques
 ```{r eval=FALSE, include=FALSE}
 COMPARE(
-  EFA(data_neg_fa[,-1], n_factors = 18, rotation = "varimax", type = "EFAtools")$rot_loadings,
-  EFA(data_neg_fa[,-1], n_factors = 18, rotation = "promax", type = "EFAtools")$rot_loadings
+  EFA(sub_feat_lung_data[,-1], n_factors = 18, rotation = "varimax", type = "EFAtools")$rot_loadings,
+  EFA(sub_feat_lung_data[,-1], n_factors = 18, rotation = "promax", type = "EFAtools")$rot_loadings
 )
 ```
 
